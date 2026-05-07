@@ -1,1 +1,1 @@
-# inference-engine
+# Gym Assistant
