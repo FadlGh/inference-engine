@@ -1,45 +1,56 @@
 class FormEvaluator:
-    def __init__(self, memory):
-        self.memory = memory
-        self.prev_spine = None
-        self.prev_neck = None
+    def __init__(self, memory, form_checks: list):
+        """
+        form_checks: list of check dicts from exercise config.
 
-    def evaluate(self):
-        issues = []
+        Supported check types:
+            max       – flag if metric > warn/error threshold
+            range     – flag if metric outside [low, high]
+            fatigue   – flag if metric increased by > delta vs last rep
+            stability – flag if metric changed by > delta vs last rep
+        """
+        self.memory      = memory
+        self.form_checks = form_checks
+        self._prev       = {}   # previous rep values keyed by metric name
 
-        snapshot = self.memory.rep_snapshot()
+    def evaluate(self, window=60) -> list[str]:
+        issues   = []
+        snapshot = self.memory.rep_snapshot(window=window)
+
         if snapshot is None:
             return issues
 
-        spine, neck = snapshot
+        for check in self.form_checks:
+            metric = check["metric"]
+            value  = snapshot.get(metric)
 
-        # -------------------------
-        # SPINE (core stability)
-        # -------------------------
-        if spine > 18:
-            issues.append("Core stability is breaking down — reset tension")
-        elif spine > 12:
-            issues.append("Mild loss of core alignment — stay tighter")
+            if value is None:
+                continue
 
-        # -------------------------
-        # FATIGUE (rep-to-rep change)
-        # -------------------------
-        if self.prev_spine is not None:
-            if spine - self.prev_spine > 4:
-                issues.append("Form is degrading across reps — slow down or stop early")
+            ctype = check["type"]
 
-        self.prev_spine = spine
+            if ctype == "max":
+                if value > check["error"]:
+                    issues.append(check["msg_error"])
+                elif value > check["warn"]:
+                    issues.append(check["msg_warn"])
 
-        # -------------------------
-        # NECK (light signal only)
-        # -------------------------
-        if neck < 150 or neck > 172:
-            issues.append("Keep head more neutral")
+            elif ctype == "range":
+                if not (check["low"] <= value <= check["high"]):
+                    issues.append(check["msg"])
 
-        if self.prev_neck is not None:
-            if abs(neck - self.prev_neck) > 6:
-                issues.append("Neck position changing under fatigue")
+            elif ctype == "fatigue":
+                prev = self._prev.get(metric)
+                if prev is not None and (value - prev) > check["delta"]:
+                    issues.append(check["msg"])
 
-        self.prev_neck = neck
+            elif ctype == "stability":
+                prev = self._prev.get(metric)
+                if prev is not None and abs(value - prev) > check["delta"]:
+                    issues.append(check["msg"])
+
+            # Update previous value for fatigue/stability checks
+            if ctype in ("fatigue", "stability", "max", "range"):
+                self._prev[metric] = value
 
         return issues

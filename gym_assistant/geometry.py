@@ -13,3 +13,15 @@ def lm(landmarks, idx, w, h):
     """Return pixel coords for landmark index."""
     point = landmarks[idx]
     return [point.x * w, point.y * h]
+
+def vertical_deviation(a, b):
+    """
+    Angle (degrees) between the vector a→b and the vertical axis.
+    a, b are [x, y] pixel coords.
+    0° = perfectly vertical, 90° = horizontal.
+    """
+    dx = b[0] - a[0]
+    dy = b[1] - a[1]
+    # vertical vector is (0, 1) in image coords (y increases downward)
+    angle = np.degrees(np.arctan2(abs(dx), abs(dy)))
+    return angle
