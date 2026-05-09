@@ -57,7 +57,7 @@ class RepCounter:
         return angle, depth_ok, self._phase(angle)
 
     def _phase(self, angle: float) -> str:
-        if angle < self.down_threshold * 0.75:   # well below threshold → bottom
+        if angle < self.min_depth:
             return "bottom"
         if self.went_down:
             return "down"

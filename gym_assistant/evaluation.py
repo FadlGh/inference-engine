@@ -50,7 +50,7 @@ class FormEvaluator:
                     issues.append(check["msg"])
 
             # Update previous value for fatigue/stability checks
-            if ctype in ("fatigue", "stability", "max", "range"):
+            if ctype in ("fatigue", "stability"):
                 self._prev[metric] = value
 
         return issues

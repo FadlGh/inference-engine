@@ -17,8 +17,6 @@ class MovementMemory:
             if m["type"] == "vertical_deviation":
                 a, b = kp[joints[0]], kp[joints[1]]
                 entry[m["name"]] = vertical_deviation(a, b)
-                if m["name"] == "spine_dev":
-                    print(f"spine_dev: {entry['spine_dev']:.1f}°")
 
             else:
                 a, b, c = kp[joints[0]], kp[joints[1]], kp[joints[2]]
