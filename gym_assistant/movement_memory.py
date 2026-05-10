@@ -17,7 +17,6 @@ class MovementMemory:
             if m["type"] == "vertical_deviation":
                 a, b = kp[joints[0]], kp[joints[1]]
                 entry[m["name"]] = vertical_deviation(a, b)
-
             else:
                 a, b, c = kp[joints[0]], kp[joints[1]], kp[joints[2]]
                 raw = angle3(a, b, c)
@@ -29,15 +28,17 @@ class MovementMemory:
         self.history.append(entry)
 
     def rep_snapshot(self, window: int = 60) -> dict | None:
-        if len(self.history) < window:
+        # FIX: use whatever frames are available, not hard None if < window
+        available = min(window, len(self.history))
+        if available == 0:
             return None
 
-        recent = list(self.history)[-window:]
+        recent   = list(self.history)[-available:]
         snapshot = {}
 
         for m in self.metrics:
             name = m["name"]
-            agg  = m.get("agg", "mean")   # default to mean
+            agg  = m.get("agg", "mean")
             vals = [f[name] for f in recent if name in f]
             if not vals:
                 continue

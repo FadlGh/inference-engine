@@ -1,3 +1,6 @@
+import time
+
+
 class EMA:
     def __init__(self, alpha=0.5):
         self.alpha = alpha
@@ -10,23 +13,20 @@ class EMA:
 
 class RepCounter:
     def __init__(self, rep_rules: dict):
-        """
-        rep_rules keys:
-            down_threshold  – angle below this means the joint is bending (going down)
-            up_threshold    – angle above this (after going down) counts as a completed rep
-            min_depth       – joint must have reached at least this angle during the rep
-            lockout_frames  – frames to ignore after a rep is counted (debounce)
-        """
-        self.down_threshold  = rep_rules["down_threshold"]
-        self.up_threshold    = rep_rules["up_threshold"]
-        self.min_depth       = rep_rules["min_depth"]
-        self.lockout_frames  = rep_rules["lockout_frames"]
+        self.down_threshold = rep_rules["down_threshold"]
+        self.up_threshold   = rep_rules["up_threshold"]
+        self.min_depth      = rep_rules["min_depth"]
+        self.lockout_frames = rep_rules["lockout_frames"]
 
-        self.reps      = 0
-        self.smoother  = EMA(alpha=0.5)
-        self.min_angle = 180
-        self.went_down = False
-        self.lockout   = 0
+        self.reps       = 0
+        self.smoother   = EMA(alpha=0.5)
+        self.min_angle  = 180
+        self.went_down  = False
+        self.lockout    = 0
+
+        # Tempo tracking
+        self._rep_times: list[float] = []   # timestamp of each completed rep
+        self.last_tempo: float | None = None  # seconds for last rep
 
     def update(self, raw_angle: float):
         """
@@ -50,15 +50,29 @@ class RepCounter:
         ):
             self.reps   += 1
             depth_ok     = True
+            self.last_min_angle = self.min_angle
             self.lockout = self.lockout_frames
+
+            now = time.time()
+            if self._rep_times:
+                self.last_tempo = now - self._rep_times[-1]
+            self._rep_times.append(now)
+
             self.went_down = False
             self.min_angle = 180
 
         return angle, depth_ok, self._phase(angle)
 
     def _phase(self, angle: float) -> str:
-        if angle < self.min_depth:
+        if angle < self.min_depth:      # FIX: was down_threshold * 0.75
             return "bottom"
         if self.went_down:
             return "down"
         return "up"
+
+    def avg_tempo(self) -> float | None:
+        """Average seconds per rep. None if < 2 reps."""
+        if len(self._rep_times) < 2:
+            return None
+        total = self._rep_times[-1] - self._rep_times[0]
+        return total / (len(self._rep_times) - 1)
