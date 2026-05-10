@@ -30,11 +30,14 @@ PUSHUP = {
         "lockout_frames":   20,
     },
 
-    # Metrics tracked per frame by MovementMemory
+    # Metrics tracked per frame by MovementMemory.
+    # "agg": "max" on spine_dev so the worst frame in the rep is evaluated,
+    # not the mean — which would dilute brief form breakdowns.
     "memory_metrics": [
         {
             "name":   "spine_dev",
             "type":   "deviation_from_straight",   # abs(180 - angle)
+            "agg":    "max",                        # catch peak deviation
             "joints": ["shoulder", "hip", "ankle"],
         },
         {

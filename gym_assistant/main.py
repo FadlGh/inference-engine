@@ -25,7 +25,7 @@ def _normalize_source(source):
 def _build_kp(lmks, keypoints: dict, w: int, h: int) -> dict:
     """
     Extract named keypoints from landmarks.
-    FIX: skip landmarks with visibility below VIS_THRESHOLD.
+    Skips landmarks with visibility below VIS_THRESHOLD.
     """
     kp = {}
     for name, idx in keypoints.items():
@@ -52,7 +52,7 @@ def _primary_angle(lmks, kp: dict, cfg: dict) -> float | None:
     return angle3(a, b, c)
 
 
-def _session_summary(exercise_name: str, counter: RepCounter, all_issues: list[str]):
+def _session_summary(exercise_name: str, counter: RepCounter, all_issues: list[str], evaluator: "FormEvaluator"):
     print("\n" + "=" * 40)
     print(f"SESSION SUMMARY — {exercise_name}")
     print(f"  Total reps : {counter.reps}")
@@ -68,6 +68,12 @@ def _session_summary(exercise_name: str, counter: RepCounter, all_issues: list[s
             print(f"    [{count}x] {msg}")
     else:
         print("  Form       : No issues detected")
+
+    session_issues = evaluator.session_issues()
+    if session_issues:
+        print("  Session    :")
+        for msg in session_issues:
+            print(f"    {msg}")
 
     print("=" * 40)
 
@@ -92,7 +98,7 @@ def run(source=0, exercise: str = "pushup"):
 
     feedback_msg   = ""
     feedback_timer = 0
-    all_issues     = []   # for session summary
+    all_issues     = []
 
     with mp_pose.Pose(
         min_detection_confidence=0.6,
@@ -120,10 +126,18 @@ def run(source=0, exercise: str = "pushup"):
 
                 if raw_angle is not None:
                     smoothed_angle, depth_ok, phase = counter.update(raw_angle)
+
+                    # Mark the exact frame descent begins so rep_snapshot()
+                    # knows which frames belong to this rep.
+                    if counter.descent_started:
+                        memory.mark_rep_start()
+
                     memory.add(kp)
 
                     if depth_ok:
-                        issues = evaluator.evaluate(window=60)
+                        # evaluate() internally calls rep_snapshot() which
+                        # uses only frames since mark_rep_start().
+                        issues = evaluator.evaluate()
                         all_issues.extend(issues)
 
                         logger.log(
@@ -163,7 +177,6 @@ def run(source=0, exercise: str = "pushup"):
             put_text(frame, f"{cfg['name']}  |  Reps: {counter.reps}", (20, 40))
             put_text(frame, f"Phase: {phase}", (20, 80), color=phase_color(phase))
 
-            # Tempo display
             if counter.last_tempo is not None:
                 put_text(frame, f"Tempo: {counter.last_tempo:.1f}s", (20, 120))
 
@@ -178,4 +191,4 @@ def run(source=0, exercise: str = "pushup"):
     cap.release()
     cv2.destroyAllWindows()
     logger.close()
-    _session_summary(cfg["name"], counter, all_issues)
+    _session_summary(cfg["name"], counter, all_issues, evaluator)

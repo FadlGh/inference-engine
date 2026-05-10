@@ -29,53 +29,34 @@ SQUAT = {
 
     "memory_metrics": [
         {
+            # Angle between shoulder→hip vector and vertical axis.
+            # Normal squat at depth: 30–45°. agg:max catches the worst lean
+            # in the rep (typically at the bottom).
             "name":   "spine_dev",
             "type":   "vertical_deviation",
-            "joints": ["shoulder", "hip"],   # just 2 points — torso vector
-        },
-        {
-            "name":   "knee_angle",
-            "type":   "angle",
-            "agg":    "min", 
-            "joints": ["hip", "knee", "ankle"],
-        },
-        # Tracks lateral knee deviation proxy via left side only
-        # (full valgus detection needs frontal camera — this is a sagittal proxy)
-        {
-            "name":   "neck",
-            "type":   "angle",
-            "joints": ["nose", "shoulder", "hip"],
+            "agg":    "max",
+            "joints": ["shoulder", "hip"],
         },
     ],
 
     "form_checks": [
         {
+            # Normal squat peak lean is 30–45°. Warn starts at 52° to avoid
+            # flagging people with normal hip mobility on every rep.
             "metric":    "spine_dev",
             "type":      "max",
-            "warn":      45,      
-            "error":     60,       
+            "warn":      52,
+            "error":     68,
             "msg_warn":  "Slight excessive lean — keep chest up",
             "msg_error": "Excessive forward lean — reduce depth or check mobility",
         },
         {
+            # Session-level only — evaluated in summary, not per-rep.
+            # Compares average lean of last third of reps vs first third.
             "metric":    "spine_dev",
             "type":      "fatigue",
-            "delta":     8,        # was 5
-            "msg":       "Posture degrading across reps — rest or stop",
-        },
-        {
-            "metric":    "knee_angle",
-            "type":      "range",
-            "low":       60,
-            "high":      175,
-            "msg":       "Check knee alignment — avoid caving inward",
-        },
-        {
-            "metric":    "neck",
-            "type":      "range",
-            "low":       145,
-            "high":      175,
-            "msg":       "Keep your gaze forward — avoid looking down",
+            "delta":     5,
+            "msg":       "Posture degraded across the session — work on core endurance",
         },
     ],
 }
