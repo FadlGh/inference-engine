@@ -4,52 +4,20 @@ from collections import Counter
 
 from .counter import RepCounter
 from .evaluation import FormEvaluator
-from .geometry import lm, angle3
 from .ui import put_text, phase_color
 from .movement_memory import MovementMemory
 from .csv_logger import CSVLogger
 from .exercises import EXERCISES
+from .pose_utils import build_kp, primary_angle, VIS_THRESHOLD
 
 mp_pose = mp.solutions.pose
 mp_draw = mp.solutions.drawing_utils
-
-VIS_THRESHOLD = 0.5   # landmarks below this visibility are excluded
 
 
 def _normalize_source(source):
     if isinstance(source, str) and source.isdigit():
         return int(source)
     return source
-
-
-def _build_kp(lmks, keypoints: dict, w: int, h: int) -> dict:
-    """
-    Extract named keypoints from landmarks.
-    Skips landmarks with visibility below VIS_THRESHOLD.
-    """
-    kp = {}
-    for name, idx in keypoints.items():
-        point = lmks[idx]
-        if point.visibility >= VIS_THRESHOLD:
-            kp[name] = lm(lmks, idx, w, h)
-    return kp
-
-
-def _primary_angle(lmks, kp: dict, cfg: dict) -> float | None:
-    """
-    Pick left or right side based on visibility, return the joint angle.
-    Returns None if required keypoints are not visible.
-    """
-    pa     = cfg["primary_angle"]
-    vis_l  = lmks[pa["vis_index"]].visibility
-    vis_r  = lmks[pa["vis_index_r"]].visibility
-    joints = pa["joints"] if vis_l >= vis_r else pa["joints_r"]
-
-    if not all(j in kp for j in joints):
-        return None
-
-    a, b, c = kp[joints[0]], kp[joints[1]], kp[joints[2]]
-    return angle3(a, b, c)
 
 
 def _session_summary(exercise_name: str, counter: RepCounter, all_issues: list[str], evaluator: "FormEvaluator"):
@@ -120,23 +88,19 @@ def run(source=0, exercise: str = "pushup"):
 
             if res.pose_landmarks:
                 lmks = res.pose_landmarks.landmark
-                kp   = _build_kp(lmks, cfg["keypoints"], w, h)
+                kp   = build_kp(lmks, cfg["keypoints"], w, h)
 
-                raw_angle = _primary_angle(lmks, kp, cfg)
+                raw_angle = primary_angle(lmks, kp, cfg)
 
                 if raw_angle is not None:
                     smoothed_angle, depth_ok, phase = counter.update(raw_angle)
 
-                    # Mark the exact frame descent begins so rep_snapshot()
-                    # knows which frames belong to this rep.
                     if counter.descent_started:
                         memory.mark_rep_start()
 
                     memory.add(kp)
 
                     if depth_ok:
-                        # evaluate() internally calls rep_snapshot() which
-                        # uses only frames since mark_rep_start().
                         issues = evaluator.evaluate()
                         all_issues.extend(issues)
 
